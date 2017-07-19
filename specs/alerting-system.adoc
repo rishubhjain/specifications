@@ -237,7 +237,7 @@ Note:
 
 === Assignee(s):
 
-Gowtham S
+Gowtham S &
 Rishubh jain
 
 
