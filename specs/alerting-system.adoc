@@ -14,7 +14,7 @@ Goal: Notify user when the system crosses threshold.
 Actors:
 1) User 
 
-Steps:-
+Steps:
 * An alert is configured in grafana as per user requirement.
 * A Notification channel is configured in grafana.
 * Any change in system state is caught by tendrl component(possibly 
