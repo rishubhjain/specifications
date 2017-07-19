@@ -210,7 +210,7 @@ In alerting module create a new directory called dependent_alert and create each
  
  None
  
- === Other end user impact:
+=== Other end user impact:
 
 Alerts and dependent alerts are received by end user as single alert.
 
