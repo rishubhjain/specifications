@@ -11,6 +11,7 @@ Grafana has been introduced to display interactive graphs for monitoring data fo
 == Use Cases
 
 Goal: Notify user when the system crosses threshold.
+
 Actors:
 
 1) User 
@@ -153,7 +154,7 @@ None
 
 === Data model impact:
 
- No changes in existing structure.
+No changes in existing structure.
 
 
 === Impacted Modules:
@@ -178,7 +179,7 @@ None
 
 ==== Tendrl/performance-monitoring impact:
 
-Create a new class called alert_handler and run this class as separate gevent. AlertHandler will receive the alert event from socket and convert that alert as dictionary based on current alert structure and pass the alert as a message into message socket. (more details in implementation section)
+Create a new class called AlertHandler and run this class as separate gevent. AlertHandler will receive the alert event from socket and convert that alert as dictionary based on current alert structure and pass the alert as a message into message socket. (more details in implementation section)
 
 Whenever performance monitoring is restarted AlertHandler will send api request to grafana to fetch all the alerts which are all have state like ‘alerting’ and ‘ok’. Convert all fetched alerts and send that as messages into message socket.
 ```
@@ -188,10 +189,10 @@ To fetch all alerts from grafana:
 
 ==== Tendrl/alerting impact:
 
-Already Existing flow:
+**Already Existing flow:**
 Alerting module will fetch alert from etcd under the path messages/event which are all have  priority called ‘notice’. Then convert the alert dictionary from message metadata into alert object. Using resource attribute alert is passed to particular alert handler. Alert handler will format the alert into particular format and It will store the alert into etcd.
 
-Additional Flow:
+**Additional Flow:**
 When particular alert handler receives the alert then it will find all dependent alert. It will combine those alert as a single alert and give that to notifier to notify the user.
 In alerting module create a new directory called dependent_alert and create each dependent alerts as a separate file.  Any alert can find its dependent alert using these files. It will avoid any repetition in finding any dependency alerts between all main alerts.
 
@@ -205,8 +206,8 @@ Alerts and dependent alerts are received by end user as single alert.
 
 === Performance impact:
 
-When performance monitoring goes down then tendrl can’t receive any alert event from grafana.So we have a flow like when performance monitoring  comes back it will fetch all alerts from grafana and sent all alerts as messages to message socket. So the alerting module will take alerts from etcd path message/events and raise notification only for new alerts and state changed alerts. Problem in this approach is we need to check all collected alerts from messages with alerts which is in /alerting/alerts to find which is new alerts and which alerts states are changes. Other wise notification will send for all alert. 
-Reading all alerting event from grafana and storing all in etcd will dump etcd.
+* When performance monitoring goes down then tendrl can’t receive any alert event from grafana. So we have a flow like when performance monitoring comes back it will fetch all alerts from grafana and sent all alerts as messages to message socket. So the alerting module will take alerts from etcd path message/events and raise notification only for new alerts and state changed alerts. Problem in this approach is we need to check all collected alerts from messages with alerts which is in /alerting/alerts to find which is new alerts and which alerts states are changes. Other wise notification will send for all alert. 
+* Reading all alerting event from grafana and storing all in etcd will dump etcd.
 But it will happen only performance monitoring restarted. To find all missed events this the way. 
 
 === Other deployer impact:
@@ -215,27 +216,26 @@ None
 
 === Developer impact:
 
-Need to create a end point to receive alerting event from grafana. Convert that alert event into current alerting structure. And pass the alert into message socket.  Enhance the alert handlert to find dependent alerts and  sent all those alerts as a single notification to the users.
+Need to create a end point to receive alerting event from grafana. Convert that alert event into current alerting structure. And pass the alert into message socket. Enhance the alert handlert to find dependent alerts and sent all those alerts as a single notification to the users.
 
 == Implementation:
-Create a new file called handler.py in performance monitoring.
-Create a new class called AlertHandler in handler.py
-Run AlertHandler as seperate gevent from performance monitoring manager.
-Create a function called ‘to_dict’ in AlertHandler to convert the received alert into dictionary based on current tendrl alert structure.
-Create a new function called ‘fetch_alerts’ in AlertHander to fetch all alerts which are all have state like alerting or ok from grafana. This function will call only when performance monitoring start or restart.
-Create a new message object using alert dictionary as metadata. 
-Pass the message object into message socket using Event class.
-Create a new directory called dependent_alerts in alerting module.
-Create a different file to find each dependent alert.
-Call the required dependent alert from each alert handler.
-Combine alert and all dependent alerts and send as a single notification.
+* Create a new file called handler.py in performance monitoring.
+* Create a new class called AlertHandler in handler.py
+* Run AlertHandler as seperate gevent from performance monitoring manager.
+* Create a function called ‘to_dict’ in AlertHandler to convert the received alert into dictionary based on current tendrl alert structure.
+* Create a new function called ‘fetch_alerts’ in AlertHander to fetch all alerts which are all have state like alerting or ok from grafana. This function will call only when performance monitoring start or restart.
+* Create a new message object using alert dictionary as metadata. 
+* Pass the message object into message socket using Event class.
+* Create a new directory called dependent_alerts in alerting module.
+* Create a different file to find each dependent alert.
+* Call the required dependent alert from each alert handler.
+* Combine alert and all dependent alerts and send as a single notification.
 
 Note:
     There no changes in tacking alert from events and process alert in alerting module.
 
 
 === Assignee(s):
-
 
 Gowtham S
 Rishubh jain
