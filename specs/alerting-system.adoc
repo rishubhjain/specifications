@@ -1,5 +1,5 @@
 // vim: tw=79
-
+:imagesdir: ./images
 = Alerting System in Tendrl
 
 Alerting system is essential to spot the problem and notify it to the corresponding user. The threshholds for alerts will be configured in grafana and the alerts will be raised in grafana.
@@ -150,8 +150,10 @@ Note: if tendrl-component goes down then tendrl wont be able to receive
 the alerts from grafana. So when the tendrl-component comes back it will
 send api request to grafana to fetch all the alert which have state such
 as alerting/ok/no-data.These alerts can be parsed and then processed.
+
 * The alerts that are already present in local storage and 
   has no change is state will not be processed. 
+
 * The alerts which are in “ok” state but are not present in local storage
   will not be processed.
 
