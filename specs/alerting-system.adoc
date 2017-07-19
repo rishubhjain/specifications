@@ -140,22 +140,11 @@ pid
 source
 ```
 
-Once all the required details of alert is collected from the respective
-data sources(grafana and tendrl objects) the alert event is stored in etcd.
-Tendrl alerting module will take the alert from etcd and call particular alert
-handler function using resource variable in alert structure. Alerts are then
-passed to notifier to notify the user.
 
-Note: if tendrl-component goes down then tendrl wont be able to receive
-the alerts from grafana. So when the tendrl-component comes back it will
-send api request to grafana to fetch all the alert which have state such
-as alerting/ok/no-data.These alerts can be parsed and then processed.
+After that alert is stored as a metadata for message object and pushed into message socket. Alerting module will take the alert from message socket and call particular alert handler function using resource variable in alert structure. Each alert handler have subfunction to find the dependent alert of the particular alert. After that alerts are stored in etcd and passed to notifier to notify the user.
 
-* The alerts that are already present in local storage and 
-  has no change is state will not be processed. 
+Note: if performance monitoring goes down then tendrl can’t receive the alert from grafana. So when performance monitoring comes back it has to send api request to grafana to fetch all the alert which have state like alerting or ok. All those alerts are converted to current alert structure and send to message socket. If any alert with alert id already exist then it is updated else it created as a new alert. Notification will send Only for new alerts and state changed alerts.
 
-* The alerts which are in “ok” state but are not present in local storage
-  will not be processed.
 
 === Alternatives:
 
