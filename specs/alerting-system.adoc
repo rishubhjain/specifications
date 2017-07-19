@@ -12,15 +12,21 @@ Grafana has been introduced to display interactive graphs for monitoring data fo
 
 Goal: Notify user when the system crosses threshold.
 Actors:
+
 1) User 
 
 Steps:
+
 * An alert is configured in grafana as per user requirement.
+
 * A Notification channel is configured in grafana.
+
 * Any change in system state is caught by tendrl component(possibly 
   gluster-metrics-integration) via alerts sent by grafana
+
 * The alert(Event for Tendrl) is converted into current alert 
   structure and inserted into etcd.
+
 * The new alert is sent to respective user via the present Tendrl alerting system
 
 == Proposed change
