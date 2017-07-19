@@ -1,3 +1,4 @@
+// vim: tw=79
 :imagesdir: ./images
 
 = Alerting System in Tendrl
