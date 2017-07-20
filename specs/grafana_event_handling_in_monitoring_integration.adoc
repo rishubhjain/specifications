@@ -1,0 +1,293 @@
+:imagesdir: ./images
+
+= Grafana Event Handling In Monitoring Integration
+
+Alerting system is essential to spot the problem and notify it to the corresponding user.
+The threshholds for alerts will be configured in grafana and the alerts will be raised by grafana.
+These alerts are captured by monitoring-integration module and notified to respective user via the notifier.
+
+
+== Problem description
+
+Grafana has been introduced to display interactive graphs for monitoring data
+for clusters and hosts (https://github.com/Tendrl/specifications/issues/168)
+and all the alerts henceforth will be configured in grafana. So an additional
+component needs to be introduced which would receive the alerts from grafana,
+and use the existing alerting system(Notifier) to notify respective users.
+
+== Use Cases
+
+Goal: Notify user in case of any alert event.
+
+Actors:
+
+1) User 
+
+Steps:
+
+* An alert is configured in grafana as per user requirement.
+
+* A Notification channel is configured in grafana.
+
+* Any change in system state is caught by tendrl component
+  via alerts sent by grafana
+
+* The alert(Event for Tendrl) is converted into current alert 
+  structure and passed to node agent socket.
+
+* The new alert is sent to respective user via Notifier.
+
+
+== Proposed change
+
+
+image::alert_component.png[Tendrl Alerting System]
+
+
+Alert-Handler: It will receive alerts from Grafana.
+Notifier: Its function is to send notification to the users.(The present alert system)
+
+Alert Handler will expose an endpoint(webhook receiver) to receive alerts from grafana.
+This endpoint will be configured in grafana as a notification channel(custom webhook).
+For now the end point should be at localhost.
+
+When alert-handler starts then the end point will be ready to receive
+the alerts from grafana. If any alert is raised then grafana will send the
+alert to the end point. After receiving the alert, it should be converted to
+current alert structure of tendrl.Received grafana alert has very limited
+details so other details such as updated_at needs to fetched from grafana.
+This can be done in 2 ways:
+
+* Via an API call to grafana to get all details of particular alert by using
+  alert id as the queryparamter.
+  
+* By fetching the details from the default database(sqlite) used by grafana.
+
+```
+Received grafana alert:
+    {"evalMatches":[{"value":6961614848,"metric":"collectd.dhcp42-170_lab_eng_blr_redhat_com.memory.memory-free","tags":null}],"message":"alert","ruleId":6,"ruleName":"Panel Title alert","ruleUrl":"http://localhost:3000/dashboard/db/new_graphite?fullscreen\u0026edit\u0026tab=alert\u0026panelId=3\u0026orgId=1","state":"alerting","title":"[Alerting] Panel Title alert"}
+
+Alert from API request: http://{ip}:3000/api/alerts/6
+{
+Id: 6,
+Version: 0,
+OrgId: 1,
+DashboardId: 7,
+PanelId: 3,
+Name: "Panel Title alert",
+Message: "alert",
+Severity: "",
+State: "alerting",
+Handler: 1,
+Silenced: false,
+ExecutionError: " ",
+Frequency: 5,
+EvalData: - {
+evalMatches: - [
+- {
+metric: "collectd.dhcp42-170_lab_eng_blr_redhat_com.memory.memory-free",
+tags: null,
+value: 6961614848
+}
+]
+},
+NewStateDate: "2017-07-18T23:07:16+05:30",
+StateChanges: 291,
+Created: "2017-09-18T14:36:37+05:30",
+Updated: "2017-07-19T04:37:11+05:30",
+Settings: - {
+conditions: - [
+- {
+evaluator: - {
+params: - [
+6956963696
+],
+type: "gt"
+},
+operator: - {
+type: "and"
+},
+query: - {
+datasourceId: 3,
+model: - {
+refId: "A",
+target: "collectd.dhcp42-170_lab_eng_blr_redhat_com.memory.memory-free"
+},
+params: - [
+"A",
+"5m",
+"now"
+]
+},
+reducer: - {
+params:[],
+type: "avg"
+},
+type: "query"
+}
+],
+executionErrorState: "alerting",
+frequency: "5s",
+handler: 1,
+message: "alert",
+name: "Panel Title alert",
+noDataState: "alerting",
+notifications:[]
+}
+}
+    
+```
+
+After receiving alert then it will converted to current tendrl alert structure. 
+```
+Alert_id
+node_id
+time_stamp
+resource
+current_value
+tags
+alert_type
+severity
+significance
+ackedby
+acked
+ack_comment
+acked_at
+pid
+source
+```
+
+Once all the required details of alert is collected from the respective
+data sources(grafana and tendrl objects) it is supposed to be notified to
+the user which will be done by the Notifier component.
+
+Also the alerts are to be stored in etcd for logging purposes.
+
+The Notifier can receive the Event in 2 ways:
+
+* The Events and alerts are stored in etcd. The notifier could collect the alerts
+  from etcd and then using the configuration file in etcd it could notify the 
+  respective user.
+  
+  Drawback:
+  
+  ** Pooling etcd for new alerts is not efficient.
+  
+* The node-agent can directly pass the alert event to the notifier.
+
+  Advantage:
+  
+  ** Avoids pooling etcd for new alerts.
+
+=== Alternatives:
+
+None
+
+
+=== Data model impact:
+
+ No changes in existing structure.
+
+
+=== Impacted Modules:
+
+==== Tendrl API impact:
+
+None
+
+==== Notifications/Monitoring impact:
+
+None
+
+==== Tendrl/common impact:
+None
+
+==== Tendrl/node_agent impact:
+
+None
+
+==== Sds integration impact:
+None
+
+==== Tendrl/performance-monitoring impact:
+
+Create a new class called alert_handler and run this class as separate gevent.
+AlertHandler will receive the alert event from socket and convert that alert
+as dictionary based on current alert structure and pass the alert as a message
+to the node-agent socket. (more details in implementation section)
+
+```
+To fetch details regarding particular alert from grafana:
+   http://{ip}:3000/api/alerts/{id}
+```
+
+==== Tendrl/alerting impact:
+
+None
+
+=== Security impact:
+ 
+ None
+ 
+=== Other end user impact:
+
+Users will be able to set alerts in Grafana itself and get notified for the same.
+
+=== Performance impact:
+
+None
+
+=== Other deployer impact:
+
+None
+
+=== Developer impact:
+
+Need to create a end point to receive alerting event from grafana. Convert that alert event into current alerting structure. And pass the alert into node-agent socket.
+
+== Implementation:
+Create a new file called handler.py in performance monitoring.
+Create a new class called AlertHandler in handler.py
+Run AlertHandler as seperate gevent from performance monitoring manager.
+Create a function called ‘to_dict’ in AlertHandler to convert the received alert into dictionary based on current tendrl alert structure.
+Create a new message object using alert dictionary as metadata.
+Pass the message object into message socket using Event class.
+Pass the complete Event to the node-agent socket.
+Notify the respective user about the alert.
+
+Note:
+    There are no changes in taking alert-events from etcd and notifying user.
+
+
+=== Assignee(s):
+
+
+Gowtham S
+Rishubh jain
+
+
+=== Work Items:
+
+https://github.com/Tendrl/specifications/issues/169
+
+
+== Dependencies:
+
+None
+
+
+== Testing:
+
+Check all grafana and sds alerts are stored and notified to the users correctly.
+
+
+== Documentation impact:
+
+None
+
+
+== References:
+
+None
+
+
