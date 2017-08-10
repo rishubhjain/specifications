@@ -79,6 +79,14 @@ This can be achieved in 2 ways:
 The Notifier will notify the user of the events via configured notification channels
 like SMTP.
 
+For now, tendrl is going to support two different notification channels:
+
+    1. SMTP : Simple mail transfer protocol
+    2. SNMP : Simple network management protocol
+
+Notifier should reterive the alert object from etcd and notified via these two notification
+channels.
+
 === Alternatives:
 
 Prometheus alertmanager can be used as a "Notifier" instead of tendrl alert module.
@@ -120,6 +128,62 @@ None
 Tendrl alerting system will be renamed as Notifier.
 Its main functionality would be to fetch the alert events and
 notify the respective user.
+
+Notifier have some notification plugins, For now notifier supports two different
+notification plugins
+    1. email notification plugin using SMTP
+    2. SNMP notification plugin.
+
+When notifier starts, A class "NotificationPluginManager" will collect all list
+of notfication plugins. All notification plugins are subclass of "NotificationPlugin"
+class. The "NotificationPluginManager" will collect all notification plugins using
+a "NotificationPlugin" class.
+
+When alert object came, the "NotificationPluginManager" manager will pass the alert
+objects into the notification plugins to notify the user.
+
+```
+Structure of notification plugin base class
+
+class NotificationPlugin(object):
+    def __init__(self):
+        super(NotificationPlugin, self).__init__()
+        self.name = ''
+
+    @abstractmethod
+    def save_config_help(self):
+        raise NotImplementedError()
+
+    @abstractmethod
+    def set_destinations(self):
+        raise NotImplementedError()
+
+    @abstractmethod
+    def get_alert_destinations(self):
+        raise NotImplementedError()
+
+    @abstractmethod
+    def format_message(self, alert):
+        raise NotImplementedError()
+
+    @abstractmethod
+    def dispatch_notification(self, msg):
+        raise NotImplementedError()
+```
+
+```
+Email handler plugin:
+
+class EmailHandler(NotificationPlugin):
+{
+}
+
+Snmp hanlder plugin:
+
+class SnmpHandler(NotificationPlugin):
+{
+}
+```
 
 === Security impact:
 
@@ -169,6 +233,8 @@ Trim down present alerting system to provide only notification functionality.
 * Modifiy the logger.py to pass the alert message into AlertCondtionHandler class.
 * AlertCondtionHandler should have a logic to find whether alert is new alert or
   updation for existing alert or unset.
+* Create a new plugin class called "SnmpHandler" to support SNMP notification.
+* A class "SnmpHandler" should be a subclass of "NotificationPlugin"
 
 === Assignee(s):
 
@@ -184,7 +250,8 @@ https://github.com/Tendrl/specifications/issues/190
 
 == Dependencies:
 
-None
+python package for SNMP support : pysnmp
+(for pip and yum package name is same)
 
 
 == Testing:
